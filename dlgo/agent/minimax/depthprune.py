@@ -61,17 +61,16 @@ class DepthPrunedAgent(Agent):
         for possible_move in game_state.legal_moves():
             # Вычислить игровое состояние при выборе этого хода
             next_state = game_state.apply_move(possible_move)
-            # Since our opponent plays next, figure out their best
-            # possible outcome from there.
+            # Определение лучшего результата противника, исходя из этой позиции
             opponent_best_outcome = best_result(next_state, self.max_depth, self.eval_fn)
-            # Our outcome is the opposite of our opponent's outcome.
+            # Что бы ни было нужно противнику, игроку-агенту нужно противоположное
             our_best_outcome = -1 * opponent_best_outcome
             if (not best_moves) or our_best_outcome > best_score:
-                # This is the best move so far.
+                # Пока это лучший ход
                 best_moves = [possible_move]
                 best_score = our_best_outcome
             elif our_best_outcome == best_score:
-                # This is as good as our previous best move.
+                # Этот ход так же хорош, как и предыдущий лучший ход.
                 best_moves.append(possible_move)
-        # For variety, randomly select among all equally good moves.
+        # Выбрать ход случайным образом среди всех одинаково хороших ходов
         return random.choice(best_moves)

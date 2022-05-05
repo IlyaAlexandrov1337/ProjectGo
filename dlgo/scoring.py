@@ -4,14 +4,14 @@ from dlgo.gotypes import Player, Point
 
 class Territory:
     def __init__(self, territory_map):
-        # `territory_map` делит доску на камни, территорию, закреплённую за игроками и "ничейные" (дамё).
+        # A `territory_map` splits the board into stones, territory and neutral points (dame).
         self.num_black_territory = 0
         self.num_white_territory = 0
         self.num_black_stones = 0
         self.num_white_stones = 0
         self.num_dame = 0
         self.dame_points = []
-        # В зависимости от статуса точки мы увеличиваем соответствующий счётчик.
+        # Depending on the status of a point, we increment the respective counter.
         for point, status in territory_map.items():
             if status == Player.black:
                 self.num_black_stones += 1
@@ -45,30 +45,36 @@ class GameResult(namedtuple('GameResult', 'b w komi')):
         return 'W+%.1f' % (w - self.b,)
 
 
-# Делит доску на территории и дамё.
-# Любые пересечения, полностью окруженные камнями одного цветом, считаются территорией;
-# они не идентифицируются как мертвые группы.
+""" evaluate_territory:
+Map a board into territory and dame.
+
+Any points that are completely surrounded by a single color are
+counted as territory; it makes no attempt to identify even
+trivially dead groups.
+"""
+
+
 def evaluate_territory(board):
     status = {}
     for r in range(1, board.num_rows + 1):
         for c in range(1, board.num_cols + 1):
             p = Point(row=r, col=c)
-            # Пропустите это пересечение, если вы уже его посещали в составе другой группы.
+            # Skip the point, if you already visited this as part of a different group.
             if p in status:
                 continue
             stone = board.get(p)
-            # Если на пересечении находится камень, добавьте его в статус.
+            # If the point is a stone, add it as status.
             if stone is not None:
                 status[p] = board.get(p)
             else:
                 group, neighbors = _collect_region(p, board)
-                # Если пересечение полностью окружено черными или белыми камнями, оно считается территорией.
+                # If a point is completely surrounded by black or white stones, count it as territory.
                 if len(neighbors) == 1:
                     neighbor_stone = neighbors.pop()
                     stone_str = 'b' if neighbor_stone == Player.black else 'w'
                     fill_with = 'territory_' + stone_str
                 else:
-                    # В противном случае пересечение остаётся нейтральным (дамё).
+                    # Otherwise, the point has to be a neutral point, so we add it to dame.
                     fill_with = 'dame'
                 for pos in group:
                     status[pos] = fill_with

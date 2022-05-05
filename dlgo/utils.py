@@ -1,3 +1,4 @@
+import numpy as np
 from dlgo import gotypes
 
 COLS = 'ABCDEFGHJKLMNOPQRST'
@@ -29,8 +30,31 @@ def print_board(board):
     print('    ' + '  '.join(COLS[:board.num_cols]))
 
 
-# Преобразование входных данных, полученных от пользователя, в координаты доски
 def point_from_coords(coords):
-    col = COLS.index(coords[0].upper()) + 1
+    col = COLS.index(coords[0]) + 1
     row = int(coords[1:])
     return gotypes.Point(row=row, col=col)
+
+
+def coords_from_point(point):
+    return '%s%d' % (
+        COLS[point.col - 1],
+        point.row
+    )
+
+
+class MoveAge:
+    def __init__(self, board):
+        self.move_ages = - np.ones((board.num_rows, board.num_cols))
+
+    def get(self, row, col):
+        return self.move_ages[row, col]
+
+    def reset_age(self, point):
+        self.move_ages[point.row - 1, point.col - 1] = -1
+
+    def add(self, point):
+        self.move_ages[point.row - 1, point.col - 1] = 0
+
+    def increment_all(self):
+        self.move_ages[self.move_ages > -1] += 1

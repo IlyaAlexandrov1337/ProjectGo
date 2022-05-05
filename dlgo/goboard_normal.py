@@ -4,8 +4,10 @@ from dlgo.gotypes import Player, Point
 from dlgo.scoring import compute_game_result
 
 
-# Задаются возможные действия игрока –is_play, is_pass или is_resign.
 class Move:
+    """Any action a player can play on a turn.
+    Exactly one of is_play, is_pass, is_resign will be set.
+    """
     def __init__(self, point=None, is_pass=False, is_resign=False):
         assert (point is not None) ^ is_pass ^ is_resign
         self.point = point
@@ -13,9 +15,9 @@ class Move:
         self.is_pass = is_pass
         self.is_resign = is_resign
 
-    # Этот ход предполагает размещение камня на доске.
     @classmethod
     def play(cls, point):
+        """A move that places a stone on the board."""
         return Move(point=point)
 
     # Этот ход предполагает пропуск хода.
@@ -29,26 +31,24 @@ class Move:
         return Move(is_resign=True)
 
 
-# GoString – цепочка связанных камней одного цвета.
+# GoString – a chain of connected stones of the same color.
 class GoString:
     def __init__(self, color, stones, liberties):
         self.color = color
-        # Множества камней и степеней свободы теперь являются неизменяемыми.
+        # `stones` and `liberties` are now immutable `frozenset` instances
         self.stones = frozenset(stones)
         self.liberties = frozenset(liberties)
 
-    # Метод without_liberty заменил предыдущий метод remove_liberty
     def without_liberty(self, point):
         new_liberties = self.liberties - {point}
         return GoString(self.color, self.stones, new_liberties)
 
-    # метод with_liberty заменил предыдущий метод add_liberty.
     def with_liberty(self, point):
         new_liberties = self.liberties | {point}
         return GoString(self.color, self.stones, new_liberties)
 
-    # Возвращает новую цепочку, содержащую все камни обеих цепочек
     def merged_with(self, go_string):
+        """Return a new string containing all stones in both strings."""
         assert go_string.color == self.color
         combined_stones = self.stones | go_string.stones
         return GoString(
@@ -67,7 +67,7 @@ class GoString:
                self.liberties == other.liberties
 
 
-# Доска инициализируется в виде пустой сетки, состоящей из заданного количества строк и столбцов.
+# The board is initialized as an empty grid consisting of the specified number of rows and columns
 class Board:
     def __init__(self, num_rows, num_cols):
         self.num_rows = num_rows
@@ -78,16 +78,21 @@ class Board:
     def is_on_grid(self, point):
         return 1 <= point.row <= self.num_rows and 1 <= point.col <= self.num_cols
 
-    # Возвращает содержимое точки на доске: сведения об игроке,
-    # если в этой точке находится камень, в противном случае – None.
     def get(self, point):
+        """Return the content of a point on the board.
+        Returns None if the point is empty, or a Player if there is a
+        stone on that point.
+        """
         string = self._grid.get(point)
         if string is None:
             return None
         return string.color
 
-    # Возвращает всю цепочку камней, если в этой точке находится камень, в противном случае – None.
     def get_go_string(self, point):
+        """Return the entire string of stones at a point.
+        Returns None if the point is empty, or a GoString if there is
+        a stone on that point.
+        """
         string = self._grid.get(point)
         if string is None:
             return None
@@ -95,7 +100,7 @@ class Board:
 
     def _remove_string(self, string):
         for point in string.stones:
-            # Удаление цепочки камней может увеличить степени свободы других цепочек.
+            # Removing a string can create liberties for other strings.
             for neighbor in point.neighbors():
                 neighbor_string = self._grid.get(neighbor)
                 if neighbor_string is None:
@@ -103,10 +108,9 @@ class Board:
                 if neighbor_string is not string:
                     self._replace_string(neighbor_string.with_liberty(point))
             self._grid[point] = None
-            # При использовании Zobrist-хеширования необходимо отменить применение хеш-значения для этого хода.
             self._hash ^= zobrist.HASH_CODE[point, string.color]
 
-    # Этот новый вспомогательный метод обновляет сетку доски.
+    # This new helper method updates our Go board grid.
     def _replace_string(self, new_string):
         for point in new_string.stones:
             self._grid[point] = new_string
@@ -130,26 +134,25 @@ class Board:
             else:
                 if neighbor_string not in adjacent_opposite_color:
                     adjacent_opposite_color.append(neighbor_string)
-        # До этой строки метод place_stone остается прежним.
         new_string = GoString(player, [point], liberties)
-        # Объединение всех смежных цепочек камней одного цвета.
+        # Union of all adjacent chains of stones of the same color.
         for same_color_string in adjacent_same_color:
             new_string = new_string.merged_with(same_color_string)
         for new_string_point in new_string.stones:
             self._grid[new_string_point] = new_string
-
-        # Применение хеш-кода для данной точки и игрока.
+        self._hash ^= zobrist.HASH_CODE[point, None]
+        # With Zobrist hashing, you need to unapply the hash for this move.
         self._hash ^= zobrist.HASH_CODE[point, player]
-        # Уменьшение количества степеней свободы соседних цепочек камней противоположного цвета.
+        # Reducing the number of degrees of freedom of neighboring chains of stones of the opposite color.
         for other_color_string in adjacent_opposite_color:
-            # Уменьшение количества степеней свободы любых смежных цепочек камней другого цвета.
+            # Reducing the number of degrees of freedom of any adjacent chains of stones of a different color.
             replacement = other_color_string.without_liberty(point)
             if replacement.num_liberties:
                 self._replace_string(other_color_string.without_liberty(point))
             else:
-                # Удаление цепочек камней другого цвета с нулевой степенью свободы.
+                # Removing chains of stones of a different color with zero degree of freedom.
                 self._remove_string(other_color_string)
-        # Удаление с доски цепочек камней противоположного цвета с нулевой степенью свободы.
+        # Removing chains of stones of the opposite color from the board with zero degree of freedom.
         for other_color_string in adjacent_opposite_color:
             if other_color_string.num_liberties == 0:
                 self._remove_string(other_color_string)
@@ -159,7 +162,7 @@ class Board:
                self.num_rows == other.num_rows and \
                self.num_cols == other.num_cols and self._grid == other._grid
 
-    # Возврат текущего Zobrist-хеша доски
+    # Return the board's current Zobrist hash
     def zobrist_hash(self):
         return self._hash
 
@@ -177,7 +180,7 @@ class GameState:
                 {(previous.next_player, previous.board.zobrist_hash())})
         self.last_move = move
 
-    # Возвращает новое игровое состояние после совершения хода.
+    # Returns the new game state after a move has been made.
     def apply_move(self, move):
         if move.is_play:
             next_board = deepcopy(self.board)
@@ -215,7 +218,7 @@ class GameState:
     def situation(self):
         return self.next_player, self.board
 
-    # Быстрая проверка игровых состояний на применимость правила ко с помощью Zobrist-хешей
+    # Quick check of game states for the applicability of the ko rule using Zobrist hashes
     def does_move_violate_ko(self, player, move):
         if not move.is_play:
             return False
@@ -241,7 +244,7 @@ class GameState:
                 move = Move.play(Point(row, col))
                 if self.is_valid_move(move):
                     moves.append(move)
-        # Эти два хода всегда возможны.
+        # These two moves are always possible.
         moves.append(Move.pass_turn())
         moves.append(Move.resign())
 

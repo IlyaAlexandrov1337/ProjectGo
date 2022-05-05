@@ -71,16 +71,17 @@ class AlphaBetaAgent(Agent):
         best_score = None
         best_black = MIN_SCORE
         best_white = MIN_SCORE
-        # Циклическая обработка всех допустимых ходов
+        # Loop over all legal moves.
         for possible_move in game_state.legal_moves():
-            # Вычислить игровое состояние при выборе этого хода
+            # Calculate the game state if we select this move.
             next_state = game_state.apply_move(possible_move)
-            # Определение лучшего результата противника, исходя из этой позиции
+            # Determination of the best result of the opponent, based on this position
             opponent_best_outcome = alpha_beta_result(
                 next_state, self.max_depth,
                 best_black, best_white,
                 self.eval_fn)
-            # Что бы ни было нужно противнику, игроку-агенту нужно противоположное
+            # Since our opponent plays next, figure out their best
+            # possible outcome from there.
             our_best_outcome = -1 * opponent_best_outcome
             if (not best_moves) or our_best_outcome > best_score:
                 # This is the best move so far.
@@ -91,7 +92,7 @@ class AlphaBetaAgent(Agent):
                 elif game_state.next_player == Player.white:
                     best_white = best_score
             elif our_best_outcome == best_score:
-                # Этот ход так же хорош, как и предыдущий лучший ход.
+                # This is as good as our previous best move.
                 best_moves.append(possible_move)
-        # Выбрать ход случайным образом среди всех одинаково хороших ходов
+        # For variety, randomly select among all equally good moves.
         return random.choice(best_moves)

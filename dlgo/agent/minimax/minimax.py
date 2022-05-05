@@ -24,25 +24,25 @@ def reverse_game_result(game_result):
 
 def best_result(game_state):
     if game_state.is_over():
-        # Игра уже закончена
+        # Game is already over.
         if game_state.winner() == game_state.next_player:
-            # Победа игрока
+            # We win!
             return GameResult.win
         elif game_state.winner() is None:
-            # Ничья
+            # A draw.
             return GameResult.draw
         else:
-            # Победа противника
+            # Opponent won.
             return GameResult.loss
     best_result_so_far = GameResult.loss
     for candidate_move in game_state.legal_moves():
-        # Вычислить, как будет выглядеть доска в случае выбора данного хода
+        # See what the board would look like if we play this move.
         next_state = game_state.apply_move(candidate_move)
-        # Определение лучшего хода противника
+        # Find out our opponent's best move.
         opponent_best_result = best_result(next_state)
-        # Что бы ни было нужно противнику, игроку-агенту нужно противоположное.
+        # Whatever our opponent wants, we want the opposite.
         our_result = reverse_game_result(opponent_best_result)
-        # Узнать, превосходит ли этот результат все рассмотренные до этого варианты
+        # See if this result is better than the best we've seen so far.
         if our_result.value > best_result_so_far.value:
             best_result_so_far = our_result
     return best_result_so_far
@@ -53,22 +53,23 @@ class MinimaxAgent(Agent):
         winning_moves = []
         draw_moves = []
         losing_moves = []
-        # Циклическая обработка всех допустимых ходов
+        # Loop over all legal moves.
         for possible_move in game_state.legal_moves():
-            # Определение состояния доски при выборе конкретного хода
+            # Calculate the game state if we select this move.
             next_state = game_state.apply_move(possible_move)
-            # Поскольку следующий ход делает противник игрока-агента, вычислить его наилучший возможный результат
+            # Since our opponent plays next, figure out their best
+            # possible outcome from there.
             opponent_best_outcome = best_result(next_state)
-            # Результат игрока-агента будет противоположным.
+            # Our outcome is the opposite of our opponent's outcome.
             our_best_outcome = reverse_game_result(opponent_best_outcome)
-            # Классификация хода в зависимости от его результата
+            # Add this move to the appropriate list.
             if our_best_outcome == GameResult.win:
                 winning_moves.append(possible_move)
             elif our_best_outcome == GameResult.draw:
                 draw_moves.append(possible_move)
             else:
                 losing_moves.append(possible_move)
-        # Выбор хода, обеспечивающего наилучший для игрока-агента результат.
+        # Choosing a move that provides the best result for the player-agent.
         if winning_moves:
             return random.choice(winning_moves)
         if draw_moves:
